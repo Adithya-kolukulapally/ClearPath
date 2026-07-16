@@ -1,7 +1,7 @@
 const API_BASE = "https://clearpath-bz7p.onrender.com";
 
 export async function fetchPlan(studentData) {
-  const res = await fetch(`${API_BASE}/plan/generate`, {
+  const res = await fetch(`${API_BASE}/api/plan/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(studentData)
