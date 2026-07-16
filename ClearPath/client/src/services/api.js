@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://clearpath-bz7p.onrender.com";
 
 export async function fetchPlan(studentData) {
   const res = await fetch(`${API_BASE}/plan/generate`, {
