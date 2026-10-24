@@ -55,6 +55,15 @@ Analyze the student's profile and return ONLY valid JSON (no markdown, no extra 
 STUDENT PROFILE:
 ${JSON.stringify(studentData, null, 2)}
 
+SCHEDULING CONSTRAINTS:
+- Next exam date: ${studentData.examDate || 'not provided'}.
+- Available study days (0 = Monday, 6 = Sunday): ${JSON.stringify(studentData.studyDays || [])}.
+- Daily study limit on those days: ${studentData.dailyStudyHours || 'not provided'} hours.
+- Subject topics, difficulty, estimated effort, and per-subject exam dates (when supplied) are included in the student profile; use them to prioritize and pace the plan.
+- Respect these limits. If the workload cannot reasonably fit, say so plainly and suggest practical choices.
+- Do not invent form deadlines or exam dates. Use only dates from the profile or exam calendar; otherwise leave deadline alerts empty.
+- Requirements vary by employer and institution. Never guarantee that clearing a backlog makes the student eligible.
+
 PREREQUISITES MAP: ${JSON.stringify(prerequisites)}
 EXAM CALENDAR: ${JSON.stringify(examCalendar)}
 ELIGIBILITY RULES: ${JSON.stringify(eligibilityRules)}
@@ -77,9 +86,9 @@ STRICT INSTRUCTIONS:
     const today = new Date();
 
     const targetAdvice = {
-      placement: 'Companies like TCS, Infosys, and Wipro require 0 active backlogs at the time of joining. Clear all backlogs before your 7th semester to stay eligible.',
-      higher_studies: 'GATE and GRE do not directly penalize backlogs, but IITs and NITs check your marksheet. A clean record by final year greatly improves your chances.',
-      scholarship: 'Most merit scholarships require a minimum CGPA of 8.0 and 0 backlogs. Clearing backlogs will also help improve your CGPA in the revaluation cycle.'
+      placement: 'Some employers set active-backlog requirements at particular hiring stages. Check the current criteria for each role and campus drive.',
+      higher_studies: 'Admissions requirements vary by program and institution. Review the current eligibility criteria for each course you plan to apply to.',
+      scholarship: 'Scholarship rules differ by provider and year. Check the current CGPA, backlog, and attendance requirements for each award.'
     };
 
     const clearing_order = backlogs.map((b, i) => ({
@@ -91,17 +100,16 @@ STRICT INSTRUCTIONS:
       weeks_to_clear: 3 + i
     }));
 
-    const deadline_alerts = backlogs.map((b, i) => {
-      const daysLeft = 20 + i * 5;
-      const deadline = new Date(today.getTime() + daysLeft * 24 * 60 * 60 * 1000);
+    const deadline_alerts = studentData.examDate ? backlogs.map(b => {
+      const daysLeft = Math.max(0, Math.ceil((new Date(`${studentData.examDate}T00:00:00Z`) - today) / (24 * 60 * 60 * 1000)));
       return {
         course: b.course,
-        deadline: deadline.toISOString().split('T')[0],
+        deadline: studentData.examDate,
         days_left: daysLeft,
-        urgency: daysLeft < 15 ? 'high' : daysLeft < 25 ? 'medium' : 'low',
-        action: `Submit backlog exam form immediately. Do not miss this — next chance is in 6 months.`
+        urgency: daysLeft < 15 ? 'high' : daysLeft < 30 ? 'medium' : 'low',
+        action: 'Use this date to pace revision and confirm the official exam schedule with your institution.'
       };
-    });
+    }) : [];
 
     const strategies = backlogs.map(b => ({
       course: b.course,
@@ -132,9 +140,9 @@ STRICT INSTRUCTIONS:
           currently_eligible: backlogs.length === 0,
           blocking_courses: backlogs.map(b => b.course),
           advice: backlogs.length > 0
-            ? `Clear all ${backlogs.length} backlog(s) to become eligible for your target.`
-            : 'You are currently eligible! Maintain your CGPA.',
-          after_clearing: `Once you clear ${backlogs.map(b => b.course).join(' and ')}, you will meet the eligibility criteria for ${targetLabels[target]}.`
+            ? `These ${backlogs.length} backlog(s) may affect your options. Check current requirements for your specific ${target.replace('_', ' ')} opportunities.`
+            : 'No backlogs were listed. Review the current requirements for your specific opportunities.',
+          after_clearing: 'Clearing these subjects may expand your options, but eligibility depends on each institution or employer’s current criteria.'
         }
       ],
       strategies,
@@ -142,9 +150,12 @@ STRICT INSTRUCTIONS:
         total_weeks: backlogs.length * 3 + 2,
         weekly_breakdown: weeklyBreakdown,
         daily_schedule: {
-          morning: '7am–9am: Revise theory and key concepts (2 hrs)',
-          afternoon: '2pm–4pm: Solve practice problems and past papers (2 hrs)',
-          evening: '8pm–9pm: Review errors, watch concept videos (1 hr)'
+          morning: `Study one focused topic for up to ${studentData.dailyStudyHours || 2} hours on a day you are available.`,
+          afternoon: 'Use a separate available day for practice questions or a past paper; take a break between sessions.',
+          evening: 'On another available day, briefly review errors and recall key ideas. Keep rest days free.',
+          available_days: studentData.studyDays || [0, 1, 2, 3, 4, 5],
+          daily_hours: Number(studentData.dailyStudyHours) || 2,
+          exam_date: studentData.examDate || null
         },
         target_specific_advice: targetAdvice[target]
       },
@@ -153,7 +164,7 @@ STRICT INSTRUCTIONS:
         reason: backlogs.length > 0
           ? `${backlogs.length} pending backlog(s) are actively blocking your ${target.replace('_', ' ')} goal.`
           : 'No active backlogs — you are on track!',
-        consequence_if_ignored: `Missing the next exam cycle adds 6 more months of delay and severely impacts ${targetLabels[target]} eligibility.`
+        consequence_if_ignored: 'If you miss an exam opportunity, ask your institution when the next attempt is available and adjust your plan.'
       },
       summary_message: `You have ${backlogs.length} backlog(s): ${backlogs.map(b => b.course).join(', ')}. Follow this personalized plan to clear them and achieve your goal of ${targetLabels[target]}!`
     };
